@@ -28,15 +28,38 @@ const MECHANICS = [
   },
 ];
 
-export function getMechanic(round) {
-  if (round <= MECHANICS.length) return MECHANICS[Math.max(0, round - 1)];
-  const bonus = Math.min(20, round);
+export function getMechanicsForRound(round, random = Math.random) {
+  if (round <= 7) return [MECHANICS[Math.max(0, round - 1) % MECHANICS.length]];
+  const count = Math.min(MECHANICS.length, 2 + Math.floor((round - 8) / 3));
+  const pool = [...MECHANICS];
+  for (let index = pool.length - 1; index > 0; index -= 1) {
+    const selected = Math.floor(random() * (index + 1));
+    [pool[index], pool[selected]] = [pool[selected], pool[index]];
+  }
+  return pool.slice(0, count);
+}
+
+export function getRoadRows(round) {
+  if (round <= 2) return [2, 3, 5, 6, 8, 9];
+  if (round <= 4) return [1, 2, 3, 5, 6, 7, 9, 10];
+  if (round <= 6) return [1, 2, 3, 4, 6, 7, 8, 9];
+  return [1, 2, 3, 4, 5, 7, 8, 9, 10];
+}
+
+export function getVehicleCount(random = Math.random) {
+  return 1 + Math.floor(random() * 4);
+}
+
+export function getTransitionTimings() {
   return {
-    key: `extreme-${round}`,
-    icon: '🔥',
-    title: `极限叠加 · ${round}`,
-    description: `所有既有机制保留，车流速度再提升 ${bonus}%。`,
+    nextRoundDelay: 1050,
+    gameOverOverlayDelay: 900,
   };
+}
+
+export function swipeDirection(deltaX, deltaY) {
+  if (Math.abs(deltaX) > Math.abs(deltaY)) return { dx: Math.sign(deltaX), dy: 0 };
+  return { dx: 0, dy: Math.sign(deltaY) };
 }
 
 export function wrapMechanicDescription(description, lineLength = 17) {

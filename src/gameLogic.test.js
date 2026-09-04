@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  canTurboBoost, getMechanic, getNightModeConfig, isHit, movePlayer,
+  canTurboBoost, getMechanicsForRound, getNightModeConfig, getRoadRows,
+  getTransitionTimings, getVehicleCount, isHit, movePlayer, swipeDirection,
   wrapMechanicDescription,
 } from './gameLogic.js';
 
@@ -17,16 +18,46 @@ test('车辆与玩家占用同一区域时判定碰撞', () => {
   assert.equal(isHit(player, { x: 160, y: 100, width: 70, height: 30 }), false);
 });
 
-test('每次过街都会获得对应的新机制说明', () => {
-  assert.deepEqual(getMechanic(1), {
-    key: 'speed-up',
-    icon: '⚡',
-    title: '车流提速',
-    description: '所有车辆速度提升 16%，观察车距再行动。',
-  });
-  assert.equal(getMechanic(6).key, 'city-alert');
-  assert.equal(getMechanic(8).key, 'extreme-8');
-  assert.match(getMechanic(8).description, /8%/);
+test('前七关每关只启用一个机制', () => {
+  assert.deepEqual(getMechanicsForRound(1).map((item) => item.key), ['speed-up']);
+  assert.deepEqual(getMechanicsForRound(6).map((item) => item.key), ['city-alert']);
+  assert.equal(getMechanicsForRound(7).length, 1);
+});
+
+test('第八关起随机选择越来越多且不重复的复合机制', () => {
+  const randomValues = [0.9, 0.1, 0.7, 0.2, 0.6, 0.3];
+  let index = 0;
+  const random = () => randomValues[index++ % randomValues.length];
+  const round8 = getMechanicsForRound(8, random);
+  index = 0;
+  const round14 = getMechanicsForRound(14, random);
+  assert.equal(round8.length, 2);
+  assert.equal(round14.length, 4);
+  assert.equal(new Set(round14.map((item) => item.key)).size, round14.length);
+});
+
+test('关卡推进会增加道路总数并出现连续五车道', () => {
+  assert.ok(getRoadRows(1).length < getRoadRows(7).length);
+  const lateRoads = getRoadRows(7);
+  assert.ok([1, 2, 3, 4, 5].every((row) => lateRoads.includes(row)));
+});
+
+test('每条车道每次生成一到四辆车', () => {
+  assert.equal(getVehicleCount(() => 0), 1);
+  assert.equal(getVehicleCount(() => 0.25), 2);
+  assert.equal(getVehicleCount(() => 0.5), 3);
+  assert.equal(getVehicleCount(() => 0.999), 4);
+});
+
+test('结算界面要等过关或死亡动画完整播放后出现', () => {
+  const timings = getTransitionTimings();
+  assert.ok(timings.nextRoundDelay >= 900);
+  assert.ok(timings.gameOverOverlayDelay >= 800);
+});
+
+test('滑动方向选择位移更明显的轴并可随手势改向', () => {
+  assert.deepEqual(swipeDirection(3, -20), { dx: 0, dy: -1 });
+  assert.deepEqual(swipeDirection(18, -4), { dx: 1, dy: 0 });
 });
 
 test('中文机制说明会按卡片宽度主动换行', () => {

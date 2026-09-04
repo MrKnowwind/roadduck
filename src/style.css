@@ -51,52 +51,9 @@ body {
   height: auto !important;
 }
 
-.controls {
-  position: absolute;
-  right: 14px;
-  bottom: 12px;
-  display: grid;
-  grid-template-areas:
-    ". up ."
-    "left down right";
-  gap: 5px;
-  z-index: 2;
-}
-
-.control {
-  width: 48px;
-  height: 48px;
-  padding: 0;
-  border: 1px solid rgb(255 255 255 / 35%);
-  border-radius: 14px;
-  background: rgb(12 28 22 / 75%);
-  color: #fff;
-  font: 700 17px/1 inherit;
-  box-shadow: 0 4px 14px rgb(0 0 0 / 25%);
-  backdrop-filter: blur(8px);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.control:active {
-  transform: translateY(2px) scale(0.96);
-  background: #f7c948;
-  color: #12261d;
-}
-
-.up { grid-area: up; }
-.left { grid-area: left; }
-.down { grid-area: down; }
-.right { grid-area: right; }
-
 .hint {
   margin: 10px 0 0;
   color: rgb(232 255 242 / 62%);
   font-size: 12px;
   letter-spacing: 0.04em;
-}
-
-@media (pointer: fine) and (min-width: 720px) {
-  .controls { opacity: 0.42; }
-  .controls:hover { opacity: 1; }
 }
