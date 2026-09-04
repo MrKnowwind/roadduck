@@ -39,11 +39,25 @@ export function getMechanicsForRound(round, random = Math.random) {
   return pool.slice(0, count);
 }
 
+export function getBoardRows(round) {
+  return BOARD_ROWS + Math.min(12, Math.floor((round - 1) / 2) * 2);
+}
+
 export function getRoadRows(round) {
-  if (round <= 2) return [2, 3, 5, 6, 8, 9];
-  if (round <= 4) return [1, 2, 3, 5, 6, 7, 9, 10];
-  if (round <= 6) return [1, 2, 3, 4, 6, 7, 8, 9];
-  return [1, 2, 3, 4, 5, 7, 8, 9, 10];
+  let rows;
+  if (round <= 2) rows = [2, 3, 5, 6, 8, 9];
+  else if (round <= 4) rows = [1, 2, 3, 5, 6, 7, 9, 10];
+  else if (round <= 6) rows = [1, 2, 3, 4, 6, 7, 8, 9];
+  else rows = [1, 2, 3, 4, 5, 7, 8, 9, 10];
+
+  const boardRows = getBoardRows(round);
+  const groupSize = Math.min(5, 3 + Math.floor((round - 1) / 3));
+  for (let row = BOARD_ROWS; row < boardRows - 1; row += groupSize + 1) {
+    for (let offset = 0; offset < groupSize && row + offset < boardRows - 1; offset += 1) {
+      rows.push(row + offset);
+    }
+  }
+  return rows;
 }
 
 export function getVehicleCount(random = Math.random) {
@@ -105,10 +119,10 @@ export function getNightModeConfig() {
   };
 }
 
-export function movePlayer(position, dx, dy) {
+export function movePlayer(position, dx, dy, boardRows = BOARD_ROWS) {
   return {
     col: Math.max(0, Math.min(BOARD_COLS - 1, position.col + dx)),
-    row: Math.max(0, Math.min(BOARD_ROWS - 1, position.row + dy)),
+    row: Math.max(0, Math.min(boardRows - 1, position.row + dy)),
   };
 }
 

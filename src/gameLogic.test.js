@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  canTurboBoost, getMechanicsForRound, getNightModeConfig, getRoadRows,
+  canTurboBoost, getBoardRows, getMechanicsForRound, getNightModeConfig, getRoadRows,
   getTransitionTimings, getVehicleCount, getVehicleWave, isFrontalCollision,
   isHit, movePlayer, swipeDirection, wrapMechanicDescription,
 } from './gameLogic.js';
@@ -40,6 +40,14 @@ test('关卡推进会增加道路总数并出现连续五车道', () => {
   assert.ok(getRoadRows(1).length < getRoadRows(7).length);
   const lateRoads = getRoadRows(7);
   assert.ok([1, 2, 3, 4, 5].every((row) => lateRoads.includes(row)));
+});
+
+test('后期关卡地图高度超过一屏且玩家可在完整地图内移动', () => {
+  assert.equal(getBoardRows(1), 12);
+  assert.equal(getBoardRows(7), 18);
+  assert.ok(getRoadRows(7).some((row) => row > 10));
+  assert.deepEqual(movePlayer({ col: 3, row: 17 }, 0, 1, 18), { col: 3, row: 17 });
+  assert.deepEqual(movePlayer({ col: 3, row: 17 }, 0, -1, 18), { col: 3, row: 16 });
 });
 
 test('每条车道每次生成一到四辆车', () => {

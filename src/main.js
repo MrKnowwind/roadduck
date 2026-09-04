@@ -1,8 +1,8 @@
 import * as Phaser from 'phaser';
 import {
-  BOARD_COLS, BOARD_ROWS, canTurboBoost, getMechanicsForRound, getNightModeConfig,
-  getRoadRows, getTransitionTimings, getVehicleWave, isFrontalCollision, isHit,
-  movePlayer, swipeDirection, wrapMechanicDescription,
+  BOARD_COLS, canTurboBoost, getBoardRows, getMechanicsForRound, getNightModeConfig,
+  getRoadRows, getTransitionTimings, getVehicleWave, isFrontalCollision,
+  isHit, movePlayer, swipeDirection, wrapMechanicDescription,
 } from './gameLogic.js';
 
 const WIDTH = 420;
@@ -31,6 +31,8 @@ class CrossRoadScene extends Phaser.Scene {
     this.fogParts = [];
     this.nightMode = getNightModeConfig();
     this.transitionTimings = getTransitionTimings();
+    this.boardRows = getBoardRows(this.round);
+    this.worldHeight = this.boardRows * CELL;
     this.roadRows = new Set(getRoadRows(this.round));
     this.activeMechanics = getMechanicsForRound(this.round);
     this.activeMechanicKeys = new Set(this.activeMechanics.map((item) => item.key));
@@ -41,6 +43,7 @@ class CrossRoadScene extends Phaser.Scene {
     this.createAmbientMotion();
     this.createCars();
     this.createPlayer();
+    this.configureCamera();
     this.createHud();
     this.bindInput();
     this.applyMechanics();
@@ -57,9 +60,9 @@ class CrossRoadScene extends Phaser.Scene {
   }
 
   drawWorld() {
-    this.add.rectangle(WIDTH / 2, HEIGHT / 2, WIDTH, HEIGHT, 0x76c96f);
+    this.add.rectangle(WIDTH / 2, this.worldHeight / 2, WIDTH, this.worldHeight, 0x76c96f);
 
-    for (let row = 0; row < BOARD_ROWS; row += 1) {
+    for (let row = 0; row < this.boardRows; row += 1) {
       const y = row * CELL + CELL / 2;
       if (this.roadRows.has(row)) {
         this.add.rectangle(WIDTH / 2, y, WIDTH, CELL, 0x3f4a4f);
@@ -141,7 +144,7 @@ class CrossRoadScene extends Phaser.Scene {
         delay,
         repeat: -1,
         onRepeat: () => {
-          cloud.y = Phaser.Math.Between(95, HEIGHT - 80);
+          cloud.y = Phaser.Math.Between(95, this.worldHeight - 80);
         },
       });
     };
@@ -246,7 +249,7 @@ class CrossRoadScene extends Phaser.Scene {
   }
 
   createPlayer() {
-    this.position = { col: 3, row: BOARD_ROWS - 1 };
+    this.position = { col: 3, row: this.boardRows - 1 };
     this.player = this.add.container(this.cellX(this.position.col), this.cellY(this.position.row));
     this.playerShadow = this.add.ellipse(0, 16, 36, 12, 0x183529, 0.3);
     const wingLeft = this.add.ellipse(-14, 4, 12, 18, 0xf2bd3e).setAngle(-20);
@@ -293,24 +296,34 @@ class CrossRoadScene extends Phaser.Scene {
     });
   }
 
+  configureCamera() {
+    const camera = this.cameras.main;
+    camera.setBounds(0, 0, WIDTH, this.worldHeight);
+    if (this.worldHeight <= HEIGHT) return;
+    camera.scrollY = this.worldHeight - HEIGHT;
+    camera.startFollow(this.player, true, 0.08, 0.08);
+    camera.setDeadzone(WIDTH * 0.72, HEIGHT * 0.34);
+  }
+
   createHud() {
-    this.add.rectangle(WIDTH / 2 + 2, 46, WIDTH - 24, 58, 0x07150f, 0.26).setDepth(19);
+    this.add.rectangle(WIDTH / 2 + 2, 46, WIDTH - 24, 58, 0x07150f, 0.26)
+      .setDepth(19).setScrollFactor(0);
     this.add.rectangle(WIDTH / 2, 43, WIDTH - 24, 58, 0x163a2b, 0.96)
-      .setStrokeStyle(2, 0xf5dd7c, 0.28).setDepth(20);
-    this.add.circle(18, 43, 4, 0xffd85e, 0.8).setDepth(21);
-    this.add.circle(WIDTH - 18, 43, 4, 0xffd85e, 0.8).setDepth(21);
+      .setStrokeStyle(2, 0xf5dd7c, 0.28).setDepth(20).setScrollFactor(0);
+    this.add.circle(18, 43, 4, 0xffd85e, 0.8).setDepth(21).setScrollFactor(0);
+    this.add.circle(WIDTH - 18, 43, 4, 0xffd85e, 0.8).setDepth(21).setScrollFactor(0);
     this.scoreText = this.add.text(26, 34, `关卡  ${this.round}`, {
       fontFamily: 'sans-serif', fontSize: '20px', fontStyle: 'bold', color: '#ffffff',
-    }).setOrigin(0, 0.5).setDepth(21);
+    }).setOrigin(0, 0.5).setDepth(21).setScrollFactor(0);
     this.bestText = this.add.text(WIDTH - 26, 34, `最佳  ${this.best}`, {
       fontFamily: 'sans-serif', fontSize: '14px', color: '#c9eed7',
-    }).setOrigin(1, 0.5).setDepth(21);
+    }).setOrigin(1, 0.5).setDepth(21).setScrollFactor(0);
     const mechanicLabel = this.activeMechanics.length
       ? this.activeMechanics.map((item) => item.title).join(' + ')
       : '基础教学';
     this.mechanicText = this.add.text(WIDTH / 2, 57, mechanicLabel, {
       fontFamily: 'sans-serif', fontSize: '11px', color: '#ffdf68',
-    }).setOrigin(0.5).setDepth(21);
+    }).setOrigin(0.5).setDepth(21).setScrollFactor(0);
   }
 
   bindInput() {
@@ -369,7 +382,7 @@ class CrossRoadScene extends Phaser.Scene {
     }
     if (this.moving) return;
 
-    const next = movePlayer(this.position, dx, dy);
+    const next = movePlayer(this.position, dx, dy, this.boardRows);
     if (next.col === this.position.col && next.row === this.position.row) return;
     if (this.barriers.some((barrier) => barrier.col === next.col && barrier.row === next.row)) {
       this.cameras.main.shake(70, 0.002);
@@ -462,7 +475,8 @@ class CrossRoadScene extends Phaser.Scene {
     const { sliceWidth, darkness } = this.nightMode;
     for (let x = sliceWidth / 2; x < WIDTH; x += sliceWidth) {
       const top = this.add.rectangle(x, 0, sliceWidth, 1, 0x020805, darkness).setDepth(14);
-      const bottom = this.add.rectangle(x, HEIGHT, sliceWidth, 1, 0x020805, darkness).setDepth(14);
+      const bottom = this.add.rectangle(x, this.worldHeight, sliceWidth, 1, 0x020805, darkness)
+        .setDepth(14);
       this.fogParts.push({ x, top, bottom });
     }
   }
@@ -473,21 +487,21 @@ class CrossRoadScene extends Phaser.Scene {
     this.fogParts.forEach((part) => {
       const distanceX = part.x - this.player.x;
       if (Math.abs(distanceX) >= radius) {
-        this.setFogSegment(part.top, part.x, HEIGHT / 2, sliceWidth, HEIGHT);
+        this.setFogSegment(part.top, part.x, this.worldHeight / 2, sliceWidth, this.worldHeight);
         part.bottom.setVisible(false);
         return;
       }
 
       const distanceY = Math.sqrt(radius ** 2 - distanceX ** 2);
       const circleTop = Math.max(0, this.player.y - distanceY);
-      const circleBottom = Math.min(HEIGHT, this.player.y + distanceY);
+      const circleBottom = Math.min(this.worldHeight, this.player.y + distanceY);
       this.setFogSegment(part.top, part.x, circleTop / 2, sliceWidth, circleTop);
       this.setFogSegment(
         part.bottom,
         part.x,
-        circleBottom + (HEIGHT - circleBottom) / 2,
+        circleBottom + (this.worldHeight - circleBottom) / 2,
         sliceWidth,
-        HEIGHT - circleBottom,
+        this.worldHeight - circleBottom,
       );
     });
   }
@@ -501,7 +515,7 @@ class CrossRoadScene extends Phaser.Scene {
   }
 
   createBarriers() {
-    const grassRows = Array.from({ length: BOARD_ROWS - 2 }, (_, index) => index + 1)
+    const grassRows = Array.from({ length: this.boardRows - 2 }, (_, index) => index + 1)
       .filter((row) => !this.roadRows.has(row));
     grassRows.slice(0, 3).map((row, index) => ({ col: [1, 4, 2][index], row })).forEach((spot) => {
       const marker = this.makeConstructionBarrier(
@@ -602,7 +616,7 @@ class CrossRoadScene extends Phaser.Scene {
       fontFamily: 'sans-serif', fontSize: '13px', color: '#ffdf68',
     }).setOrigin(0.5);
     this.mechanicCard = this.add.container(0, 0, [overlay, card, eyebrow, icon, title, description, continueText])
-      .setDepth(40);
+      .setDepth(40).setScrollFactor(0);
     overlay.once('pointerdown', () => this.dismissMechanicCard());
   }
 
@@ -869,17 +883,17 @@ class CrossRoadScene extends Phaser.Scene {
 
   showGameOverOverlay() {
     const backdrop = this.add.rectangle(WIDTH / 2, HEIGHT / 2, WIDTH, HEIGHT, 0x07110d)
-      .setDepth(30).setAlpha(0);
+      .setDepth(30).setAlpha(0).setScrollFactor(0);
     this.tweens.add({ targets: backdrop, alpha: 0.64, duration: 220 });
     const title = this.add.text(WIDTH / 2, HEIGHT / 2 - 44, '撞车啦！', {
       fontFamily: 'sans-serif', fontSize: '38px', fontStyle: 'bold', color: '#ffffff',
-    }).setOrigin(0.5).setDepth(31).setAlpha(0).setScale(0.8);
+    }).setOrigin(0.5).setDepth(31).setAlpha(0).setScale(0.8).setScrollFactor(0);
     const score = this.add.text(WIDTH / 2, HEIGHT / 2 + 8, `成功过街 ${this.score} 次`, {
       fontFamily: 'sans-serif', fontSize: '18px', color: '#c9eed7',
-    }).setOrigin(0.5).setDepth(31).setAlpha(0);
+    }).setOrigin(0.5).setDepth(31).setAlpha(0).setScrollFactor(0);
     const hint = this.add.text(WIDTH / 2, HEIGHT / 2 + 60, '点击或按方向键重新开始', {
       fontFamily: 'sans-serif', fontSize: '14px', color: '#ffdf68',
-    }).setOrigin(0.5).setDepth(31).setAlpha(0);
+    }).setOrigin(0.5).setDepth(31).setAlpha(0).setScrollFactor(0);
     this.tweens.add({
       targets: title, alpha: 1, scale: 1, duration: 300, ease: 'Back.easeOut',
     });
