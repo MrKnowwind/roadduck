@@ -1,0 +1,102 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: #0b1813;
+  color: #f8fff7;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  overscroll-behavior: none;
+}
+
+body {
+  min-height: 100dvh;
+  background:
+    radial-gradient(circle at 50% 0%, #244f3b 0, transparent 42%),
+    #0b1813;
+  touch-action: none;
+  user-select: none;
+}
+
+.app-shell {
+  min-height: 100dvh;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  padding: 14px 14px max(14px, env(safe-area-inset-bottom));
+}
+
+.game-card {
+  position: relative;
+  width: min(420px, calc(100vw - 28px), calc((100dvh - 58px) * 0.58333));
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 24px;
+  background: #173c2c;
+  box-shadow: 0 24px 70px rgb(0 0 0 / 45%);
+}
+
+#game,
+#game canvas {
+  display: block;
+  width: 100% !important;
+  height: auto !important;
+}
+
+.controls {
+  position: absolute;
+  right: 14px;
+  bottom: 12px;
+  display: grid;
+  grid-template-areas:
+    ". up ."
+    "left down right";
+  gap: 5px;
+  z-index: 2;
+}
+
+.control {
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 1px solid rgb(255 255 255 / 35%);
+  border-radius: 14px;
+  background: rgb(12 28 22 / 75%);
+  color: #fff;
+  font: 700 17px/1 inherit;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 25%);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.control:active {
+  transform: translateY(2px) scale(0.96);
+  background: #f7c948;
+  color: #12261d;
+}
+
+.up { grid-area: up; }
+.left { grid-area: left; }
+.down { grid-area: down; }
+.right { grid-area: right; }
+
+.hint {
+  margin: 10px 0 0;
+  color: rgb(232 255 242 / 62%);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+@media (pointer: fine) and (min-width: 720px) {
+  .controls { opacity: 0.42; }
+  .controls:hover { opacity: 1; }
+}
