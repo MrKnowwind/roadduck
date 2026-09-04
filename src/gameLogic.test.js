@@ -2,8 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   canTurboBoost, getMechanicsForRound, getNightModeConfig, getRoadRows,
-  getTransitionTimings, getVehicleCount, isHit, movePlayer, swipeDirection,
-  wrapMechanicDescription,
+  getTransitionTimings, getVehicleCount, getVehicleWave, isFrontalCollision,
+  isHit, movePlayer, swipeDirection, wrapMechanicDescription,
 } from './gameLogic.js';
 
 test('玩家只能在棋盘内按格移动', () => {
@@ -47,6 +47,18 @@ test('每条车道每次生成一到四辆车', () => {
   assert.equal(getVehicleCount(() => 0.25), 2);
   assert.equal(getVehicleCount(() => 0.5), 3);
   assert.equal(getVehicleCount(() => 0.999), 4);
+});
+
+test('同一车道每一波都会重新随机车辆数量、间隔和停顿', () => {
+  assert.deepEqual(getVehicleWave(() => 0), { count: 1, gap: 88, pause: 350 });
+  assert.deepEqual(getVehicleWave(() => 0.999), { count: 4, gap: 148, pause: 1199 });
+});
+
+test('只有车头方向的碰撞致命，车身侧面碰撞会被弹回', () => {
+  assert.equal(isFrontalCollision(130, 100, 1), true);
+  assert.equal(isFrontalCollision(70, 100, 1), false);
+  assert.equal(isFrontalCollision(70, 100, -1), true);
+  assert.equal(isFrontalCollision(105, 100, 1), false);
 });
 
 test('结算界面要等过关或死亡动画完整播放后出现', () => {

@@ -50,10 +50,22 @@ export function getVehicleCount(random = Math.random) {
   return 1 + Math.floor(random() * 4);
 }
 
+export function getVehicleWave(random = Math.random) {
+  return {
+    count: getVehicleCount(random),
+    gap: 88 + Math.floor(random() * 61),
+    pause: 350 + Math.floor(random() * 850),
+  };
+}
+
+export function isFrontalCollision(playerX, carX, direction) {
+  return direction * (playerX - carX) >= 18;
+}
+
 export function getTransitionTimings() {
   return {
     nextRoundDelay: 1050,
-    gameOverOverlayDelay: 900,
+    gameOverOverlayDelay: 1450,
   };
 }
 

@@ -1,8 +1,8 @@
 import * as Phaser from 'phaser';
 import {
   BOARD_COLS, BOARD_ROWS, canTurboBoost, getMechanicsForRound, getNightModeConfig,
-  getRoadRows, getTransitionTimings, getVehicleCount, isHit, movePlayer,
-  swipeDirection, wrapMechanicDescription,
+  getRoadRows, getTransitionTimings, getVehicleWave, isFrontalCollision, isHit,
+  movePlayer, swipeDirection, wrapMechanicDescription,
 } from './gameLogic.js';
 
 const WIDTH = 420;
@@ -24,7 +24,9 @@ class CrossRoadScene extends Phaser.Scene {
     this.canRestart = false;
     this.mechanicPaused = false;
     this.moving = false;
+    this.scared = false;
     this.cars = [];
+    this.lanes = [];
     this.barriers = [];
     this.fogParts = [];
     this.nightMode = getNightModeConfig();
@@ -49,7 +51,7 @@ class CrossRoadScene extends Phaser.Scene {
       this.showMechanicCard({
         ...this.activeMechanics[0],
         title: '基本操作 · 车流提速',
-        description: '避开车辆抵达顶部终点。长按方向键或按住滑动可持续移动，本关车辆速度提升。',
+        description: '避开车头抵达顶部终点。碰到车身侧面会受惊退回原格，长按方向键或按住滑动可持续移动。',
       });
     }
   }
@@ -151,27 +153,51 @@ class CrossRoadScene extends Phaser.Scene {
     [...this.roadRows].forEach((row, laneIndex) => {
       const lane = {
         row,
+        laneIndex,
         direction: laneIndex % 2 === 0 ? 1 : -1,
         speed: 88 + (laneIndex * 19) % 68,
+        cars: [],
+        nextWaveAt: 0,
       };
-      const count = getVehicleCount();
-      for (let index = 0; index < count; index += 1) {
-        const spacing = WIDTH / count;
-        const x = spacing * index + spacing / 2 + (laneIndex % 2) * 30;
-        const carColor = CAR_COLORS[(laneIndex + index * 2) % CAR_COLORS.length];
-        const car = this.makeCar(x, lane.row * CELL + CELL / 2, carColor, lane.direction);
-        car.speed = lane.speed;
-        car.direction = lane.direction;
-        car.laneIndex = laneIndex;
-        car.isTurbo = (laneIndex === 1 || laneIndex === 4) && index === 0;
-        car.turboIcon = this.add.text(0, -25, '⚡', {
-          fontFamily: 'sans-serif', fontSize: '16px', color: '#fff16b',
-        }).setOrigin(0.5).setVisible(false);
-        car.add(car.turboIcon);
-        car.headlights = this.makeHeadlights().setVisible(false);
-        this.cars.push(car);
-      }
+      this.lanes.push(lane);
+      this.spawnVehicleWave(lane, true);
     });
+  }
+
+  spawnVehicleWave(lane, initial = false) {
+    const wave = getVehicleWave();
+    const leadX = initial
+      ? Phaser.Math.Between(35, WIDTH - 35)
+      : lane.direction > 0 ? -50 : WIDTH + 50;
+    lane.nextWaveAt = Number.POSITIVE_INFINITY;
+    lane.pauseAfterWave = wave.pause;
+    for (let index = 0; index < wave.count; index += 1) {
+      const x = leadX - lane.direction * index * wave.gap;
+      const color = CAR_COLORS[(lane.laneIndex + index * 2 + wave.count) % CAR_COLORS.length];
+      const car = this.makeCar(x, lane.row * CELL + CELL / 2, color, lane.direction);
+      car.speed = lane.speed;
+      car.direction = lane.direction;
+      car.laneIndex = lane.laneIndex;
+      car.lane = lane;
+      car.isTurbo = (lane.laneIndex === 1 || lane.laneIndex === 4) && index === 0;
+      car.turboIcon = this.add.text(0, -25, '⚡', {
+        fontFamily: 'sans-serif', fontSize: '16px', color: '#fff16b',
+      }).setOrigin(0.5).setVisible(this.activeMechanicKeys.has('turbo-cars') && car.isTurbo);
+      car.add(car.turboIcon);
+      car.headlights = this.makeHeadlights()
+        .setVisible(this.activeMechanicKeys.has('night') && this.nightMode.headlights);
+      lane.cars.push(car);
+      this.cars.push(car);
+    }
+  }
+
+  removeVehicle(car, time) {
+    const lane = car.lane;
+    car.headlights.destroy();
+    car.destroy();
+    this.cars = this.cars.filter((candidate) => candidate !== car);
+    lane.cars = lane.cars.filter((candidate) => candidate !== car);
+    if (lane.cars.length === 0) lane.nextWaveAt = time + lane.pauseAfterWave;
   }
 
   makeCar(x, y, color, direction) {
@@ -349,6 +375,7 @@ class CrossRoadScene extends Phaser.Scene {
       this.cameras.main.shake(70, 0.002);
       return;
     }
+    this.moveOrigin = { ...this.position };
     this.position = next;
     this.moving = true;
     this.idleTween.pause();
@@ -421,6 +448,8 @@ class CrossRoadScene extends Phaser.Scene {
     }
     if (this.activeMechanicKeys.has('barriers')) this.createBarriers();
     if (this.activeMechanicKeys.has('reverse-lanes')) {
+      this.lanes.filter((lane) => lane.laneIndex === 0 || lane.laneIndex === 4)
+        .forEach((lane) => { lane.direction *= -1; });
       this.cars.filter((car) => car.laneIndex === 0 || car.laneIndex === 4)
         .forEach((car) => {
           car.direction *= -1;
@@ -627,8 +656,11 @@ class CrossRoadScene extends Phaser.Scene {
     const seconds = delta / 1000;
     const heldDirection = this.touchDirection || this.keyboardDirection;
     if (heldDirection) this.tryMove(heldDirection.dx, heldDirection.dy);
+    this.lanes.forEach((lane) => {
+      if (lane.cars.length === 0 && time >= lane.nextWaveAt) this.spawnVehicleWave(lane);
+    });
 
-    this.cars.forEach((car) => {
+    [...this.cars].forEach((car) => {
       const laneVehicleXs = this.cars
         .filter((other) => other !== car && other.laneIndex === car.laneIndex)
         .map((other) => other.x);
@@ -669,16 +701,77 @@ class CrossRoadScene extends Phaser.Scene {
         });
       }
       if (Phaser.Math.Between(0, 50) === 0) this.spawnExhaust(car);
-      if (car.direction > 0 && car.x > WIDTH + 50) car.x = -50;
-      if (car.direction < 0 && car.x < -50) car.x = WIDTH + 50;
+      const exited = car.direction > 0 ? car.x > WIDTH + 55 : car.x < -55;
+      if (exited) {
+        this.removeVehicle(car, time);
+        return;
+      }
       car.headlights.setPosition(car.x + car.direction * 29, car.y);
 
       if (isHit(
         { x: this.player.x, y: this.player.y, width: 28, height: 28 },
         { x: car.x, y: car.y, width: 66, height: 28 },
-      )) this.endGame();
+      ) && !this.scared) {
+        if (isFrontalCollision(this.player.x, car.x, car.direction)) this.endGame();
+        else this.scarePlayerBack(car);
+      }
     });
     this.updateFog();
+  }
+
+  scarePlayerBack(car) {
+    this.scared = true;
+    this.moving = true;
+    this.tweens.killTweensOf(this.player);
+    this.idleTween.pause();
+    this.position = this.moveOrigin ? { ...this.moveOrigin } : { ...this.position };
+    this.playerVisual.setPosition(0, 0).setScale(1.08, 0.88);
+    this.playerShadow.setScale(1).setAlpha(0.3);
+    this.cameras.main.shake(120, 0.004);
+
+    const warning = this.add.text(this.player.x + 20, this.player.y - 31, '！', {
+      fontFamily: 'sans-serif', fontSize: '26px', fontStyle: 'bold', color: '#ff625f',
+      stroke: '#ffffff', strokeThickness: 4,
+    }).setOrigin(0.5).setDepth(18).setScale(0.2);
+    this.tweens.add({
+      targets: warning,
+      y: warning.y - 12,
+      scale: 1,
+      alpha: 0,
+      duration: 520,
+      ease: 'Back.easeOut',
+      onComplete: () => warning.destroy(),
+    });
+    this.tweens.add({
+      targets: [this.eyeA, this.eyeB],
+      scaleX: 1.65,
+      scaleY: 1.65,
+      duration: 90,
+      yoyo: true,
+      repeat: 1,
+    });
+    this.tweens.add({
+      targets: this.playerVisual,
+      angle: -car.direction * 11,
+      duration: 70,
+      yoyo: true,
+      repeat: 2,
+    });
+    this.tweens.add({
+      targets: this.player,
+      x: this.cellX(this.position.col),
+      y: this.cellY(this.position.row),
+      duration: 260,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        this.playerVisual.setPosition(0, 0).setScale(1).setAngle(0);
+        this.eyeA.setScale(1);
+        this.eyeB.setScale(1);
+        this.scared = false;
+        this.moving = false;
+        this.idleTween.resume();
+      },
+    });
   }
 
   spawnExhaust(car) {
@@ -708,19 +801,70 @@ class CrossRoadScene extends Phaser.Scene {
     if (this.gameOver) return;
     this.gameOver = true;
     this.cameras.main.shake(220, 0.012);
+    this.tweens.killTweensOf(this.player);
     this.tweens.killTweensOf(this.playerVisual);
-    this.tweens.add({
-      targets: this.playerVisual,
-      angle: carDirection(this.cars, this.player) * 140,
-      scale: 0.72,
-      alpha: 0.25,
-      duration: 380,
-      ease: 'Quad.easeOut',
-    });
     this.spawnFeathers();
+    const burstRing = this.add.circle(this.player.x, this.player.y, 13, 0xffffff, 0)
+      .setStrokeStyle(5, 0xffe982, 0.9).setDepth(28);
+    this.tweens.add({
+      targets: burstRing,
+      scale: 3.2,
+      alpha: 0,
+      duration: 320,
+      ease: 'Quad.easeOut',
+      onComplete: () => burstRing.destroy(),
+    });
+    this.createDuckSoul(this.player.x, this.player.y);
+    this.player.setVisible(false).setActive(false);
     this.time.delayedCall(this.transitionTimings.gameOverOverlayDelay, () => {
       this.showGameOverOverlay();
     });
+  }
+
+  createDuckSoul(x, y) {
+    const soul = this.add.container(x - 10, y).setDepth(29).setAlpha(0.78).setScale(0.82);
+    const halo = this.add.ellipse(0, -24, 24, 7, 0xfff5b5, 0.25)
+      .setStrokeStyle(2, 0xfff5b5, 0.9);
+    const wingLeft = this.add.ellipse(-14, 3, 11, 18, 0xeafcff, 0.62).setAngle(-24);
+    const wingRight = this.add.ellipse(14, 3, 11, 18, 0xeafcff, 0.62).setAngle(24);
+    const body = this.add.ellipse(0, 4, 31, 35, 0xeafcff, 0.64)
+      .setStrokeStyle(2, 0xffffff, 0.82);
+    const face = this.add.circle(0, -7, 15, 0xf5ffff, 0.7)
+      .setStrokeStyle(2, 0xffffff, 0.86);
+    const eyeA = this.add.text(-6, -10, '⌒', {
+      fontFamily: 'sans-serif', fontSize: '9px', color: '#56747a',
+    }).setOrigin(0.5);
+    const eyeB = this.add.text(6, -10, '⌒', {
+      fontFamily: 'sans-serif', fontSize: '9px', color: '#56747a',
+    }).setOrigin(0.5);
+    const beak = this.add.ellipse(0, 0, 12, 5, 0xffd58a, 0.7);
+    const soulVisual = this.add.container(0, 0, [halo, wingLeft, wingRight, body, face, eyeA, eyeB, beak]);
+    soul.add(soulVisual);
+
+    this.tweens.add({
+      targets: soul,
+      y: y - 145,
+      duration: 1250,
+      ease: 'Sine.easeOut',
+      onComplete: () => soul.destroy(),
+    });
+    this.tweens.add({
+      targets: soul,
+      x: x + 10,
+      duration: 135,
+      yoyo: true,
+      repeat: 4,
+      ease: 'Sine.easeInOut',
+    });
+    this.tweens.add({
+      targets: soulVisual,
+      angle: 8,
+      duration: 135,
+      yoyo: true,
+      repeat: 4,
+      ease: 'Sine.easeInOut',
+    });
+    this.tweens.add({ targets: soul, alpha: 0, duration: 350, delay: 900 });
   }
 
   showGameOverOverlay() {
@@ -763,11 +907,6 @@ class CrossRoadScene extends Phaser.Scene {
 
   cellX(col) { return col * CELL + CELL / 2; }
   cellY(row) { return row * CELL + CELL / 2; }
-}
-
-function carDirection(cars, player) {
-  const car = cars.find((candidate) => Math.abs(candidate.y - player.y) < 22);
-  return car?.direction || 1;
 }
 
 new Phaser.Game({
