@@ -50,11 +50,14 @@ export function getVehicleCount(random = Math.random) {
   return 1 + Math.floor(random() * 4);
 }
 
-export function getVehicleWave(random = Math.random) {
+export function getVehicleWave(round, random = Math.random) {
+  const difficulty = Math.max(0, Math.min(1, (round - 1) / 12));
+  const minimumPause = Math.round(300 - 260 * difficulty);
+  const maximumPause = Math.round(900 - 660 * difficulty);
   return {
     count: getVehicleCount(random),
     gap: 88 + Math.floor(random() * 61),
-    pause: 350 + Math.floor(random() * 850),
+    pause: minimumPause + Math.floor(random() * (maximumPause - minimumPause + 1)),
   };
 }
 

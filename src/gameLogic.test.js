@@ -50,8 +50,10 @@ test('每条车道每次生成一到四辆车', () => {
 });
 
 test('同一车道每一波都会重新随机车辆数量、间隔和停顿', () => {
-  assert.deepEqual(getVehicleWave(() => 0), { count: 1, gap: 88, pause: 350 });
-  assert.deepEqual(getVehicleWave(() => 0.999), { count: 4, gap: 148, pause: 1199 });
+  assert.deepEqual(getVehicleWave(1, () => 0), { count: 1, gap: 88, pause: 300 });
+  assert.deepEqual(getVehicleWave(1, () => 0.999), { count: 4, gap: 148, pause: 900 });
+  assert.deepEqual(getVehicleWave(13, () => 0), { count: 1, gap: 88, pause: 40 });
+  assert.deepEqual(getVehicleWave(13, () => 0.999), { count: 4, gap: 148, pause: 240 });
 });
 
 test('只有车头方向的碰撞致命，车身侧面碰撞会被弹回', () => {

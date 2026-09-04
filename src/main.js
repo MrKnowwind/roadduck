@@ -165,7 +165,7 @@ class CrossRoadScene extends Phaser.Scene {
   }
 
   spawnVehicleWave(lane, initial = false) {
-    const wave = getVehicleWave();
+    const wave = getVehicleWave(this.round);
     const leadX = initial
       ? Phaser.Math.Between(35, WIDTH - 35)
       : lane.direction > 0 ? -50 : WIDTH + 50;
@@ -868,8 +868,8 @@ class CrossRoadScene extends Phaser.Scene {
   }
 
   showGameOverOverlay() {
-    const backdrop = this.add.rectangle(WIDTH / 2, HEIGHT / 2, WIDTH, HEIGHT, 0x07110d, 0)
-      .setDepth(30);
+    const backdrop = this.add.rectangle(WIDTH / 2, HEIGHT / 2, WIDTH, HEIGHT, 0x07110d)
+      .setDepth(30).setAlpha(0);
     this.tweens.add({ targets: backdrop, alpha: 0.64, duration: 220 });
     const title = this.add.text(WIDTH / 2, HEIGHT / 2 - 44, '撞车啦！', {
       fontFamily: 'sans-serif', fontSize: '38px', fontStyle: 'bold', color: '#ffffff',
