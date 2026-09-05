@@ -298,6 +298,7 @@ class CrossRoadScene extends Phaser.Scene {
 
   configureCamera() {
     const camera = this.cameras.main;
+    camera.roundPixels = true;
     camera.setBounds(0, 0, WIDTH, this.worldHeight);
     if (this.worldHeight <= HEIGHT) return;
     camera.scrollY = this.worldHeight - HEIGHT;
@@ -318,9 +319,9 @@ class CrossRoadScene extends Phaser.Scene {
     this.bestText = this.add.text(WIDTH - 26, 34, `最佳  ${this.best}`, {
       fontFamily: 'sans-serif', fontSize: '14px', color: '#c9eed7',
     }).setOrigin(1, 0.5).setDepth(21).setScrollFactor(0);
-    const mechanicLabel = this.activeMechanics.length
-      ? this.activeMechanics.map((item) => item.title).join(' + ')
-      : '基础教学';
+    const mechanicLabel = this.activeMechanics.length > 1
+      ? `${this.activeMechanics.length} 项复合机制`
+      : this.activeMechanics[0]?.title || '基础教学';
     this.mechanicText = this.add.text(WIDTH / 2, 57, mechanicLabel, {
       fontFamily: 'sans-serif', fontSize: '11px', color: '#ffdf68',
     }).setOrigin(0.5).setDepth(21).setScrollFactor(0);
@@ -605,23 +606,28 @@ class CrossRoadScene extends Phaser.Scene {
     }).setOrigin(0.5);
     const description = this.add.text(
       WIDTH / 2,
-      HEIGHT / 2 - cardHeight / 2 + 157,
+      HEIGHT / 2 - cardHeight / 2 + 145,
       wrapMechanicDescription(descriptionText, 20),
       {
       fontFamily: 'sans-serif', fontSize: combined.length > 3 ? '12px' : '14px', color: '#d8f2e1', align: 'center',
       wordWrap: { width: WIDTH - 105 }, lineSpacing: 5,
       },
-    ).setOrigin(0.5);
+    ).setOrigin(0.5, 0);
     const continueText = this.add.text(WIDTH / 2, HEIGHT / 2 + cardHeight / 2 - 23, '点击屏幕继续', {
       fontFamily: 'sans-serif', fontSize: '13px', color: '#ffdf68',
     }).setOrigin(0.5);
     this.mechanicCard = this.add.container(0, 0, [overlay, card, eyebrow, icon, title, description, continueText])
       .setDepth(40).setScrollFactor(0);
-    overlay.once('pointerdown', () => this.dismissMechanicCard());
+    this.mechanicPointerHandler = () => this.dismissMechanicCard();
+    this.input.once('pointerdown', this.mechanicPointerHandler);
   }
 
   dismissMechanicCard() {
     if (!this.mechanicPaused) return;
+    if (this.mechanicPointerHandler) {
+      this.input.off('pointerdown', this.mechanicPointerHandler);
+      this.mechanicPointerHandler = null;
+    }
     this.mechanicPaused = false;
     this.mechanicCard?.destroy(true);
     this.mechanicCard = null;
